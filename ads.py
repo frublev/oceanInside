@@ -22,6 +22,7 @@ import uuid
 import os
 from dotenv import load_dotenv
 
+from sms_handler import sms_outcome
 
 dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
 if os.path.exists(dotenv_path):
@@ -67,9 +68,9 @@ class Token(Base):
 class SmsModel(Base):
     __tablename__ = "sms"
     id = Column(Integer, primary_key=True)
-    income_sms = Column(String(144), nullable=True, unique=False)
+    income_sms = Column(String(160), nullable=True, unique=False)
     creation_time = Column(DateTime, server_default=func.now())
-    outcome_sms = Column(String(144), nullable=True, unique=False)
+    outcome_sms = Column(String(160), nullable=True, unique=False)
     status_time = Column(DateTime)
     status = Column(Integer, nullable=False, unique=False)
     user_id = Column(Integer, ForeignKey('users.id'))
@@ -78,9 +79,9 @@ class SmsModel(Base):
     def to_dict(self):
         return {
             'income_sms': self.income_sms,
-            'creation_time': int(self.creation_time.timestamp()),
+            'creation_time': self.creation_time,
             'outcome_sms': self.outcome_sms,
-            'status_time': int(self.status_time.timestamp()),
+            'status_time': self.status_time,
             'status': self.status,
             'id': self.id,
             'user_id': self.user_id
@@ -187,7 +188,7 @@ class AllSmsView(MethodView):
             with Session() as session:
                 for item in session.query(SmsModel):
                     sms.append(item.to_dict())
-            return flask.jsonify({'sms': sms})
+            return flask.jsonify(sms)
         else:
             raise HTTPError(403, 'no permission')
 
@@ -209,8 +210,11 @@ class SmsView(MethodView):
             with Session() as session:
                 user = session.query(UserModel).filter(UserModel.phone_num == new_sms_data['phone_num']).first()
                 if user:
+                    print('OK')
+                    outcome_sms = sms_outcome(new_sms_data)
                     new_sms = SmsModel(income_sms=new_sms_data['income_sms'],
                                        user_id=user.id,
+                                       outcome_sms=outcome_sms,
                                        status=0,
                                        status_time=datetime.now())
                     session.add(new_sms)
